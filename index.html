@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Plan de Materias</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    .grid {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .columna-año {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 200px;
+    }
+
+    .columna-año h2 {
+      text-align: center;
+      border-bottom: 2px solid #aaa;
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+    }
+
+    .materia {
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #eee;
+      cursor: pointer;
+      transition: 0.2s;
+      text-align: center;
+    }
+
+    .materia.aprobada {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    .materia.cursada {
+      background-color: #ff9800;
+      color: white;
+    }
+
+    .materia.habilitada {
+      background-color: #2196f3;
+      color: white;
+    }
+
+    .materia.bloqueada {
+      background-color: #ccc;
+      color: #666;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <h1>Correlatividades por Año</h1>
+  <div class="grid" id="contenedor"></div>
+
+  <script type="module">
+    import materias from './materias.js';
+
+    const contenedor = document.getElementById('contenedor');
+    const estados = {};
+
+    const materiasConFinal = ['H1', 'H2', 'C1', 'C2'];
+
+    // Inicializar estados
+    materias.forEach(m => {
+      estados[m.id] = 'pendiente';
+    });
+
+    // Agrupar por año
+    const materiasPorAño = materias.reduce((acc, m) => {
+      if (!acc[m.año]) acc[m.año] = [];
+      acc[m.año].push(m);
+      return acc;
+    }, {});
+
+    // Evaluar si correlativas están completamente aprobadas
+    function correlativasCumplidas(materia) {
+      return materia.correlativas.every(grupo =>
+        grupo.some(id => estados[id] === 'aprobada')
+      );
+    }
+
+    // Evaluar si correlativas tienen al menos cursada (nuevo estado)
+    function correlativasCursadas(materia) {
+      return materia.correlativas.every(grupo =>
+        grupo.some(id => ['cursada', 'aprobada'].includes(estados[id]))
+      );
+    }
+
+    // Determina el estado visual de una materia
+    function estadoMateria(materia) {
+      const estado = estados[materia.id];
+      if (estado === 'aprobada') return 'aprobada';
+      if (estado === 'cursada') return 'cursada';
+
+      const correlativasOk = correlativasCumplidas(materia);
+      if (correlativasOk) return 'pendiente';
+
+      const cursadasOk = correlativasCursadas(materia);
+      if (cursadasOk) return 'habilitada';
+
+      return 'bloqueada';
+    }
+
+    function avanzarEstado(id) {
+      const actual = estados[id];
+      if (materiasConFinal.includes(id)) {
+        if (actual === 'pendiente') estados[id] = 'cursada';
+        else if (actual === 'cursada') estados[id] = 'aprobada';
+      } else {
+        if (actual === 'pendiente') estados[id] = 'aprobada';
+      }
+    }
+
+    function render() {
+      contenedor.innerHTML = '';
+      Object.keys(materiasPorAño).sort().forEach(año => {
+        const columna = document.createElement('div');
+        columna.className = 'columna-año';
+
+        const h2 = document.createElement('h2');
+        h2.textContent = `Año ${año}`;
+        columna.appendChild(h2);
+
+        materiasPorAño[año].forEach(materia => {
+          const div = document.createElement('div');
+          div.className = 'materia';
+          div.textContent = materia.nombre;
+          div.dataset.id = materia.id;
+
+          const estadoVisual = estadoMateria(materia);
+          div.classList.add(estadoVisual);
+
+          if (['pendiente', 'cursada'].includes(estados[materia.id])) {
+            div.addEventListener('click', () => {
+              if (estadoVisual === 'pendiente' || estadoVisual === 'cursada') {
+                avanzarEstado(materia.id);
+                render();
+              }
+            });
+          }
+
+          columna.appendChild(div);
+        });
+
+        contenedor.appendChild(columna);
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
